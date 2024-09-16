@@ -1,0 +1,92 @@
+kind: Deployment
+apiVersion: apps/v1
+metadata:
+  name: skooner
+  namespace: skooner
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      k8s-app: skooner
+  template:
+    metadata:
+      labels:
+        k8s-app: skooner
+    spec:
+      containers:
+      - name: skooner
+        image: ghcr.io/skooner-k8s/skooner:stable
+        ports:
+        - containerPort: 4654
+        livenessProbe:
+          httpGet:
+            scheme: HTTP
+            path: /
+            port: 4654
+          initialDelaySeconds: 30
+          timeoutSeconds: 30
+      nodeSelector:
+        'kubernetes.io/os': linux
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: skooner
+  namespace: skooner
+spec:
+  ports:
+    - protocol: TCP
+      port: 80
+      targetPort: 4654
+      nodePort: 30133
+  selector:
+    k8s-app: skooner
+  type: NodePort
+
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: skn
+  namespace: skooner
+  annotations:
+    kubectl.kubernetes.io/last-applied-configuration: >
+      {"apiVersion":"v1","kind":"ServiceAccount","metadata":{"annotations":{},"name":"skn","namespace":"skooner"},"secrets":[{"name":"skn-secret"}]}
+secrets:
+- name: skn-secret
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: skn-secret
+  namespace: skooner
+data:
+  token: >-
+    ZXlKaGJHY2lPaUpTVXpJMU5pSXNJbXRwWkNJNkltcHFjMFpxVTJ0V2VXaFRVQzFaT0MxcWNUbEZkMnBXVm1aRE9EbGFZVFl3VGpoRlpFSk1aakJrZFZVaWZRLmV5SmhkV1FpT2xzaWFIUjBjSE02THk5cmRXSmxjbTVsZEdWekxtUmxabUYxYkhRdWMzWmpMbU5zZFhOMFpYSXViRzlqWVd3aVhTd2laWGh3SWpveE56STJNRFUzTlRNeExDSnBZWFFpT2pFM01qWXdOVE01TXpFc0ltbHpjeUk2SW1oMGRIQnpPaTh2YTNWaVpYSnVaWFJsY3k1a1pXWmhkV3gwTG5OMll5NWpiSFZ6ZEdWeUxteHZZMkZzSWl3aWEzVmlaWEp1WlhSbGN5NXBieUk2ZXlKdVlXMWxjM0JoWTJVaU9pSnphMjl2Ym1WeUlpd2ljMlZ5ZG1salpXRmpZMjkxYm5RaU9uc2libUZ0WlNJNkluTnJiaUlzSW5WcFpDSTZJalJtTVRaak0yWTFMVGcyTkRVdE5HUTVZeTA0TnpBMUxURmhPVGhrWmprM01HUTBNaUo5ZlN3aWJtSm1Jam94TnpJMk1EVXpPVE14TENKemRXSWlPaUp6ZVhOMFpXMDZjMlZ5ZG1salpXRmpZMjkxYm5RNmMydHZiMjVsY2pwemEyNGlmUS5IWkU0S0RGR2hCR3BzX1FoakRCN2x5M1VBZEhNNWJ3WXV4TzVDWVNndjExQ29PU0IyRlluTHU3eDFnbVhiTHpfbjYzUzM2dTlzVGQ1UjZyVHgtQnc3dERnMGdfdGMwU2syQlJJcHo5SWx5RDFLWXZPREFUS3lUM1I5WDVDbEpObXJpNUlwY0xqSUcxZFFUNkpuXy14eE5sXzhuSHZOQ0JHZk4yTi02Q0lZZFIzWEVHOFc3dC1uY1JHNms0dWljUlRjZEp6eDlNdFg0VW4xSXF2Nkp1LThGVW5tbnE1Tjk0S2ROU3A5WldLb1Q3NDFGSnNtNlZwUEdqUW5IYTdHNl9MTW9OUXJuc2RNTlFNYXlBUkFRaDNBbGNxanhGZWRGcWt5eVYwbHZfbWY2dU10ekFocENiNzd5WUhicXBoczdNZEVZRTl0d3JZcDRRQjN5akFmSmRkckE=
+type: Opaque
+
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: selfsubjectrulesreview-binding
+subjects:
+- kind: ServiceAccount
+  name: skn
+  namespace: skooner
+roleRef:
+  kind: ClusterRole
+  name: selfsubjectrulesreview-role
+  apiGroup: rbac.authorization.k8s.io
+
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  namespace: skooner
+  name: selfsubjectrulesreview-role
+rules:
+- apiGroups: ["authorization.k8s.io"]
+  resources: ["selfsubjectrulesreviews"]
+  verbs: ["create"]
